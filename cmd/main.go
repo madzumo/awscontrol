@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -31,6 +36,7 @@ var (
 type applicationMain struct {
 	AwsKey    string `json:"awskey"`
 	AwsSecret string `json:"awssecret"`
+	Region    string `json: "region"`
 }
 
 func main() {
@@ -64,9 +70,36 @@ func (a *applicationMain) saveSettings() {
 }
 
 func (a *applicationMain) cloneLambda() {
+	ctx := context.Background()
+	clientLamb, err := a.createLambdaClient()
+	if err != nil {
+		fmt.Printf("Failed to create Lambda connection:\n%v", err)
+	}
 
+	resp, err := clientLamb.ListFunctions(ctx, &lambda.ListFunctionsInput{})
+	if err != nil {
+		fmt.Printf("Failed to list Lambda functions:\n%v", err)
+	}
+	fmt.Println("Available Lambda Functions:")
+	for _, fn := range resp.Functions {
+		fmt.Println(*fn.FunctionName)
+	}
 }
 
 func (a *applicationMain) upgradeLambda() {
 
+}
+
+func (a *applicationMain) createLambdaClient() (*lambda.Client, error) {
+	ctx := context.Background()
+	customCreds := aws.NewCredentialsCache(
+		credentials.NewStaticCredentialsProvider(a.AwsKey, a.AwsSecret, ""),
+	)
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithCredentialsProvider(customCreds), config.WithRegion(a.Region))
+	if err != nil {
+		return nil, err
+	}
+
+	client := lambda.NewFromConfig(cfg)
+	return client, nil
 }

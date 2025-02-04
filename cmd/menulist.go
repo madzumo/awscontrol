@@ -31,6 +31,7 @@ var (
 	menuTOP = []string{
 		"Enter AWS Key",
 		"Enter AWS Secret",
+		"Enter Region",
 		"Clone Lambda",
 		"Upgrade Lambda",
 		"Save Settings",
@@ -141,6 +142,29 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
+				case menuTOP[2]:
+					m.prevMenuState = m.state
+					m.prevState = m.state
+					m.state = StateTextInput
+					m.inputPrompt = menuTOP[2]
+					m.textInput = textinput.New()
+					m.textInput.Placeholder = "e.g., us-east-1"
+					m.textInput.Focus()
+					m.textInput.CharLimit = 200
+					m.textInput.Width = 200
+					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					return m, nil
+				case menuTOP[3]:
+					m.prevState = m.state
+					m.prevMenuState = m.state
+					m.state = StateSpinner
+					return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda())
+				case menuTOP[5]:
+					m.prevState = m.state
+					m.prevMenuState = m.state
+					m.state = StateSpinner
+					return m, tea.Batch(m.spinner.Tick, m.backgroundSaveSettings())
 				}
 			}
 			return m, nil
@@ -305,13 +329,22 @@ func (m *MenuList) updateListItems() {
 func (m *MenuList) backgroundSaveSettings() tea.Cmd {
 	return func() tea.Msg {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("13")) //white = 231
-
 		m.spinnerMsg = "Saving Settings"
 		// m.spinner.Tick()
 		time.Sleep(1 * time.Second)
 		m.app.saveSettings()
 
 		return backgroundJobMsg{result: "Settings Saved"}
+	}
+}
+
+func (m *MenuList) backgroundCloneLambda() tea.Cmd {
+	return func() tea.Msg {
+		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("13")) //white = 231
+		m.spinnerMsg = "Cloning Lambda"
+		m.app.cloneLambda()
+
+		return backgroundJobMsg{result: "The Lamb is cloned"}
 	}
 }
 
