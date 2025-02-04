@@ -15,7 +15,7 @@ import (
 
 var (
 	headerMenu = `
-      ____           
+	  ____           
      /___/\_          
     _\   \/_/\__        
   __\       \/_/\       
@@ -30,13 +30,14 @@ var (
 
 	settingsFileName = "settings.json"
 	headerColor      = "170"
+	subHeaderColor   = "120"
 	fileNameFiller   = "p313"
 )
 
 type applicationMain struct {
 	AwsKey    string `json:"awskey"`
 	AwsSecret string `json:"awssecret"`
-	Region    string `json: "region"`
+	Region    string `json:"region"`
 }
 
 func main() {
@@ -53,12 +54,17 @@ func main() {
 	ShowMenu(app)
 }
 
-func (a *applicationMain) getHeader() string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(headerColor)).Render(headerMenu)
+func (app *applicationMain) getHeader() string {
+	fullHeader := lipgloss.NewStyle().Foreground(lipgloss.Color(headerColor)).Render(headerMenu) + "\n" +
+		fmt.Sprintf("Key: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.AwsKey)) +
+		fmt.Sprintf("Secret: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.AwsSecret)) +
+		fmt.Sprintf("Region: %s", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.Region))
+
+	return fullHeader
 }
 
-func (a *applicationMain) saveSettings() {
-	data, err := json.MarshalIndent(a, "", " ")
+func (app *applicationMain) saveSettings() {
+	data, err := json.MarshalIndent(app, "", " ")
 	if err != nil {
 		fmt.Printf("Error saving settings\n%s", err)
 	}
@@ -69,9 +75,9 @@ func (a *applicationMain) saveSettings() {
 	}
 }
 
-func (a *applicationMain) cloneLambda() {
+func (app *applicationMain) cloneLambda() {
 	ctx := context.Background()
-	clientLamb, err := a.createLambdaClient()
+	clientLamb, err := app.createLambdaClient()
 	if err != nil {
 		fmt.Printf("Failed to create Lambda connection:\n%v", err)
 	}
@@ -86,16 +92,16 @@ func (a *applicationMain) cloneLambda() {
 	}
 }
 
-func (a *applicationMain) upgradeLambda() {
+func (app *applicationMain) upgradeLambda() {
 
 }
 
-func (a *applicationMain) createLambdaClient() (*lambda.Client, error) {
+func (app *applicationMain) createLambdaClient() (*lambda.Client, error) {
 	ctx := context.Background()
 	customCreds := aws.NewCredentialsCache(
-		credentials.NewStaticCredentialsProvider(a.AwsKey, a.AwsSecret, ""),
+		credentials.NewStaticCredentialsProvider(app.AwsKey, app.AwsSecret, ""),
 	)
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithCredentialsProvider(customCreds), config.WithRegion(a.Region))
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithCredentialsProvider(customCreds), config.WithRegion(app.Region))
 	if err != nil {
 		return nil, err
 	}

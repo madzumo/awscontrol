@@ -21,8 +21,8 @@ var (
 	selectedItemStyle   = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
 	paginationStyle     = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
 	helpStyle           = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
-	textPromptColor     = "141" //"100" //nice: 141
-	textInputColor      = "193" //"40" //nice: 193
+	textPromptColor     = "120" //"100" //nice: 141
+	textInputColor      = "140" //"40" //nice: 193
 	textErrorColorBack  = "1"
 	textErrorColorFront = "15"
 	textResultJob       = "141" //PINK"205"
@@ -195,10 +195,13 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.inputPrompt {
 			case menuTOP[0]:
 				m.app.AwsKey = inputValue
-				m.backgroundJobResult = fmt.Sprintf("Saved API: %s", inputValue)
+				m.backgroundJobResult = fmt.Sprintf("Saved AWS Key: %s", inputValue)
 			case menuTOP[1]:
 				m.app.AwsSecret = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved AWS Secret: %s", inputValue)
+			case menuTOP[2]:
+				m.app.Region = inputValue
+				m.backgroundJobResult = fmt.Sprintf("Saved Region: %s", inputValue)
 			}
 
 			m.prevState = m.state
@@ -281,6 +284,7 @@ func (m MenuList) viewResultDisplay() string {
 func (m MenuList) View() string {
 	switch m.state {
 	case StateMainMenu, StateSettingsMenu:
+		m.header = m.app.getHeader()
 		return m.header + "\n" + m.list.View()
 	case StateSpinner:
 		return m.viewSpinner()
@@ -331,9 +335,8 @@ func (m *MenuList) backgroundSaveSettings() tea.Cmd {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("13")) //white = 231
 		m.spinnerMsg = "Saving Settings"
 		// m.spinner.Tick()
-		time.Sleep(1 * time.Second)
 		m.app.saveSettings()
-
+		time.Sleep(1 * time.Second)
 		return backgroundJobMsg{result: "Settings Saved"}
 	}
 }
