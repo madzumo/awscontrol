@@ -1,2 +1,3 @@
-# awsmanager
-manage resources in your AWS environment
+# AWS Control
+
+manage resources in AWS
