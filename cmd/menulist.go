@@ -343,7 +343,7 @@ func (m MenuList) viewResultDisplay() string {
 	} else {
 		m.backgroundJobResult = lipgloss.NewStyle().Foreground(lipgloss.Color(textResultJob)).Render(m.backgroundJobResult)
 	}
-	return fmt.Sprintf("\n\n%s\n\n%s", wordwrap.WrapString(m.backgroundJobResult, 90), wordwrap.WrapString(outroRender, 90))
+	return fmt.Sprintf("\n\n%s\n\n%s", m.backgroundJobResult, outroRender)
 
 	// //repeat interval
 	// if m.configSettings.Interval > 0 {
