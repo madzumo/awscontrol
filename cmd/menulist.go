@@ -56,10 +56,10 @@ type backgroundJobMsg struct {
 	result string
 }
 
-// message returned when you have to continue the prompting of data
-type continueLambda struct {
-	result string
-}
+// // message returned when you have to continue the prompting of data
+// type continueLambda struct {
+// 	result string
+// }
 
 type JobList int
 
@@ -290,8 +290,8 @@ func (m *MenuList) updateSpinner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.backgroundJobResult = m.jobOutcome + "\n\n" + msg.result + "\n"
 		m.state = StateResultDisplay
 		return m, nil
-	case continueLambda:
-		return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda(m.lambdaFunction))
+	// case continueLambda:
+	// 	return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda(m.lambdaFunction))
 	default:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)

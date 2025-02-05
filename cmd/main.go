@@ -20,7 +20,7 @@ var (
 \_\/_\__\/\__\/\__\/_\_\/
    \_\/_/\       /_\_\/  
       \_\/       \_\/    
-               AWS Control
+          AWS Control 1.0
 `
 
 	settingsFileName = "settings.json"
