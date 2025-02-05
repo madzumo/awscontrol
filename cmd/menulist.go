@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mitchellh/go-wordwrap"
 )
 
 var (
@@ -23,17 +24,18 @@ var (
 	helpStyle           = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
 	textPromptColor     = "120" //"100" //nice: 141
 	textInputColor      = "140" //"40" //nice: 193
+	textResultJob       = "120" //PINK"205"
+	spinnerColor        = "226"
 	textErrorColorBack  = "1"
 	textErrorColorFront = "15"
-	textResultJob       = "141" //PINK"205"
 	textJobOutcomeFront = "216"
 
 	menuTOP = []string{
 		"Enter AWS Key",
 		"Enter AWS Secret",
 		"Enter Region",
-		"Clone Lambda",
-		"Upgrade Lambda",
+		"Clone Lambda - Enter Function",
+		"Upgrade Lambda - Enter Function",
 		"Save Settings",
 	}
 )
@@ -54,11 +56,11 @@ type backgroundJobMsg struct {
 	result string
 }
 
-// // message returned when you have to continue the prompting of data
-//
-//	type continueJobs struct {
-//		result string
-//	}
+// message returned when you have to continue the prompting of data
+type continueLambda struct {
+	result string
+}
+
 type JobList int
 
 type MenuList struct {
@@ -76,6 +78,7 @@ type MenuList struct {
 	textInputError      bool
 	jobOutcome          string
 	app                 *applicationMain
+	lambdaFunction      string
 }
 
 func (m MenuList) Init() tea.Cmd {
@@ -155,11 +158,42 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
+					// case menuTOP[3]:
+					// 	m.prevState = m.state
+					// 	m.prevMenuState = m.state
+					// 	m.state = StateSpinner
+					// 	return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda())
 				case menuTOP[3]:
-					m.prevState = m.state
 					m.prevMenuState = m.state
-					m.state = StateSpinner
-					return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda())
+					m.prevState = m.state
+					m.state = StateTextInput
+					m.inputPrompt = menuTOP[3] //"Enter Lambda Function Name to Clone"
+					m.textInput = textinput.New()
+					m.textInput.Placeholder = "e.g., Lambda123"
+					m.textInput.Focus()
+					m.textInput.CharLimit = 200
+					m.textInput.Width = 200
+					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					return m, nil
+					// case menuTOP[4]:
+					// 	m.prevState = m.state
+					// 	m.prevMenuState = m.state
+					// 	m.state = StateSpinner
+					// 	return m, tea.Batch(m.spinner.Tick, m.backgroundUpdateLambda())
+				case menuTOP[4]:
+					m.prevMenuState = m.state
+					m.prevState = m.state
+					m.state = StateTextInput
+					m.inputPrompt = menuTOP[4]
+					m.textInput = textinput.New()
+					m.textInput.Placeholder = "e.g., Lambda123"
+					m.textInput.Focus()
+					m.textInput.CharLimit = 200
+					m.textInput.Width = 200
+					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					return m, nil
 				case menuTOP[5]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
@@ -202,6 +236,26 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case menuTOP[2]:
 				m.app.Region = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved Region: %s", inputValue)
+			case menuTOP[3]:
+				m.lambdaFunction = inputValue
+				m.backgroundJobResult = "Starting Lambda Cloning..."
+
+				// Transition to Spinner State
+				m.prevState = m.state
+				m.state = StateSpinner
+
+				// Run the spinner and background job
+				return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda(m.lambdaFunction))
+			case menuTOP[4]:
+				m.lambdaFunction = inputValue
+				m.backgroundJobResult = "Starting Lambda Updating..."
+
+				// Transition to Spinner State
+				m.prevState = m.state
+				m.state = StateSpinner
+
+				// Run the spinner and background job
+				return m, tea.Batch(m.spinner.Tick, m.backgroundUpdateLambda(m.lambdaFunction))
 			}
 
 			m.prevState = m.state
@@ -236,8 +290,8 @@ func (m *MenuList) updateSpinner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.backgroundJobResult = m.jobOutcome + "\n\n" + msg.result + "\n"
 		m.state = StateResultDisplay
 		return m, nil
-	// case continueJobs:
-	// 	return m, tea.Batch(m.spinner.Tick, m.startBackgroundJob())
+	case continueLambda:
+		return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda(m.lambdaFunction))
 	default:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
@@ -273,7 +327,7 @@ func (m MenuList) viewResultDisplay() string {
 	} else {
 		m.backgroundJobResult = lipgloss.NewStyle().Foreground(lipgloss.Color(textResultJob)).Render(m.backgroundJobResult)
 	}
-	return fmt.Sprintf("\n\n%s\n\n%s", m.backgroundJobResult, outroRender)
+	return fmt.Sprintf("\n\n%s\n\n%s", wordwrap.WrapString(m.backgroundJobResult, 90), wordwrap.WrapString(outroRender, 90))
 
 	// //repeat interval
 	// if m.configSettings.Interval > 0 {
@@ -332,7 +386,7 @@ func (m *MenuList) updateListItems() {
 
 func (m *MenuList) backgroundSaveSettings() tea.Cmd {
 	return func() tea.Msg {
-		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("13")) //white = 231
+		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(spinnerColor)) //white = 231
 		m.spinnerMsg = "Saving Settings"
 		// m.spinner.Tick()
 		m.app.saveSettings()
@@ -341,13 +395,31 @@ func (m *MenuList) backgroundSaveSettings() tea.Cmd {
 	}
 }
 
-func (m *MenuList) backgroundCloneLambda() tea.Cmd {
+func (m *MenuList) backgroundCloneLambda(lambdaFuncName string) tea.Cmd {
 	return func() tea.Msg {
-		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("13")) //white = 231
+		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(spinnerColor)) //white = 231
 		m.spinnerMsg = "Cloning Lambda"
-		m.app.cloneLambda()
+		resultX := "The Lamb is cloned"
 
-		return backgroundJobMsg{result: "The Lamb is cloned"}
+		message, err := m.app.cloneLambda(lambdaFuncName, fmt.Sprintf("%s-p313", lambdaFuncName))
+		if err != nil {
+			resultX = message
+		}
+		return backgroundJobMsg{result: resultX}
+	}
+}
+
+func (m *MenuList) backgroundUpdateLambda(lambdaFunctionName string) tea.Cmd {
+	return func() tea.Msg {
+		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(spinnerColor)) //white = 231
+		m.spinnerMsg = "Upgrading Lambda Runtime"
+		resultX := "The Lamb is Upgraded"
+
+		message, err := m.app.upgradeLambda(lambdaFunctionName)
+		if err != nil {
+			resultX = message
+		}
+		return backgroundJobMsg{result: resultX}
 	}
 }
 
