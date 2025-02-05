@@ -34,6 +34,7 @@ var (
 		"Enter AWS Key",
 		"Enter AWS Secret",
 		"Enter Region",
+		"Enter Session Token",
 		"Clone Lambda - Enter Function",
 		"Upgrade Lambda - Enter Function",
 		"Save Settings",
@@ -169,6 +170,18 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = StateTextInput
 					m.inputPrompt = menuTOP[3] //"Enter Lambda Function Name to Clone"
 					m.textInput = textinput.New()
+					m.textInput.Placeholder = "e.g., Jibberish Characters"
+					m.textInput.Focus()
+					m.textInput.CharLimit = 1000
+					m.textInput.Width = 200
+					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+				case menuTOP[4]:
+					m.prevMenuState = m.state
+					m.prevState = m.state
+					m.state = StateTextInput
+					m.inputPrompt = menuTOP[4] //"Enter Lambda Function Name to Clone"
+					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., Lambda123"
 					m.textInput.Focus()
 					m.textInput.CharLimit = 200
@@ -181,11 +194,11 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// 	m.prevMenuState = m.state
 					// 	m.state = StateSpinner
 					// 	return m, tea.Batch(m.spinner.Tick, m.backgroundUpdateLambda())
-				case menuTOP[4]:
+				case menuTOP[5]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[4]
+					m.inputPrompt = menuTOP[5]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., Lambda123"
 					m.textInput.Focus()
@@ -194,7 +207,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[5]:
+				case menuTOP[6]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
@@ -229,14 +242,17 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.inputPrompt {
 			case menuTOP[0]:
 				m.app.AwsKey = inputValue
-				m.backgroundJobResult = fmt.Sprintf("Saved AWS Key: %s", inputValue)
+				m.backgroundJobResult = fmt.Sprintf("Saved AWS Key: %s", wordwrap.WrapString(inputValue, 90))
 			case menuTOP[1]:
 				m.app.AwsSecret = inputValue
-				m.backgroundJobResult = fmt.Sprintf("Saved AWS Secret: %s", inputValue)
+				m.backgroundJobResult = fmt.Sprintf("Saved AWS Secret: %s", wordwrap.WrapString(inputValue, 90))
 			case menuTOP[2]:
 				m.app.Region = inputValue
-				m.backgroundJobResult = fmt.Sprintf("Saved Region: %s", inputValue)
+				m.backgroundJobResult = fmt.Sprintf("Saved Region: %s", wordwrap.WrapString(inputValue, 90))
 			case menuTOP[3]:
+				m.app.SessionToken = inputValue
+				m.backgroundJobResult = fmt.Sprintf("Saved Session Token: %s", wordwrap.WrapString(inputValue, 90))
+			case menuTOP[4]:
 				m.lambdaFunction = inputValue
 				m.backgroundJobResult = "Starting Lambda Cloning..."
 
@@ -246,7 +262,7 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				// Run the spinner and background job
 				return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda(m.lambdaFunction))
-			case menuTOP[4]:
+			case menuTOP[5]:
 				m.lambdaFunction = inputValue
 				m.backgroundJobResult = "Starting Lambda Updating..."
 

@@ -17,7 +17,7 @@ import (
 func (app *applicationMain) createLambdaClient() (*lambda.Client, error) {
 	ctx := context.Background()
 	customCreds := aws.NewCredentialsCache(
-		credentials.NewStaticCredentialsProvider(app.AwsKey, app.AwsSecret, ""),
+		credentials.NewStaticCredentialsProvider(app.AwsKey, app.AwsSecret, app.SessionToken),
 	)
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithCredentialsProvider(customCreds), config.WithRegion(app.Region))
 	if err != nil {

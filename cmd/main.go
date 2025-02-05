@@ -33,11 +33,12 @@ type applicationMain struct {
 	AwsKey         string `json:"awskey"`
 	AwsSecret      string `json:"awssecret"`
 	Region         string `json:"region"`
+	SessionToken   string `json:"session"`
 	LambdaFunction string `json:"lambdafunction"`
 }
 
 func main() {
-	app := &applicationMain{AwsKey: "-", AwsSecret: "-", Region: "-"}
+	app := &applicationMain{AwsKey: "-", AwsSecret: "-", Region: "-", SessionToken: ""}
 	data, err := os.ReadFile(settingsFileName)
 	if err != nil {
 		fmt.Printf("Error getting settings\n%s", err)
@@ -54,7 +55,8 @@ func (app *applicationMain) getHeader() string {
 	fullHeader := lipgloss.NewStyle().Foreground(lipgloss.Color(headerColor)).Render(headerMenu) + "\n" +
 		fmt.Sprintf("   Key: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.AwsKey)) +
 		fmt.Sprintf("Secret: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.AwsSecret)) +
-		fmt.Sprintf("Region: %s", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.Region))
+		fmt.Sprintf("Region: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.Region)) +
+		fmt.Sprintf(" Token: %s...", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.truncateX(app.SessionToken, 10)))
 
 	return fullHeader
 }
@@ -69,4 +71,12 @@ func (app *applicationMain) saveSettings() {
 	if err != nil {
 		fmt.Printf("Error saving settings\n%s", err)
 	}
+}
+
+func (app *applicationMain) truncateX(s string, length int) string {
+	runes := []rune(s) // Convert string to runes to handle Unicode properly
+	if len(runes) > length {
+		return string(runes[:length])
+	}
+	return s
 }
