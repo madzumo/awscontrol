@@ -20,7 +20,7 @@ var (
 \_\/_\__\/\__\/\__\/_\_\/
    \_\/_/\       /_\_\/  
       \_\/       \_\/    
-          AWS Control 1.0
+					AWS Control 1.2
 `
 
 	settingsFileName = "settings.json"
@@ -30,15 +30,15 @@ var (
 )
 
 type applicationMain struct {
-	AwsKey         string `json:"awskey"`
-	AwsSecret      string `json:"awssecret"`
-	Region         string `json:"region"`
-	SessionToken   string `json:"session"`
-	LambdaFunction string `json:"lambdafunction"`
+	AwsKey            string `json:"awskey"`
+	AwsSecret         string `json:"awssecret"`
+	Region            string `json:"region"`
+	SessionToken      string `json:"session"`
+	FileNameExtension string `json:"filenameextension"`
 }
 
 func main() {
-	app := &applicationMain{AwsKey: "-", AwsSecret: "-", Region: "-", SessionToken: ""}
+	app := &applicationMain{AwsKey: "-", AwsSecret: "-", Region: "-"}
 	data, err := os.ReadFile(settingsFileName)
 	if err != nil {
 		fmt.Printf("Error getting settings\n%s", err)
@@ -53,10 +53,11 @@ func main() {
 
 func (app *applicationMain) getHeader() string {
 	fullHeader := lipgloss.NewStyle().Foreground(lipgloss.Color(headerColor)).Render(headerMenu) + "\n" +
-		fmt.Sprintf("   Key: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.AwsKey)) +
-		fmt.Sprintf("Secret: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.AwsSecret)) +
-		fmt.Sprintf("Region: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.Region)) +
-		fmt.Sprintf(" Token: %s...", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.truncateX(app.SessionToken, 10)))
+		fmt.Sprintf("      Key: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.AwsKey)) +
+		fmt.Sprintf("   Secret: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.AwsSecret)) +
+		fmt.Sprintf("   Region: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.Region)) +
+		fmt.Sprintf("    Token: %s...\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.truncateX(app.SessionToken, 10))) +
+		fmt.Sprintf("Extension: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.FileNameExtension))
 
 	return fullHeader
 }

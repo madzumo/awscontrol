@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	lipTitleStyle       = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("205"))
+	lipTitleStyle       = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("45"))
 	itemStyle           = lipgloss.NewStyle().PaddingLeft(4)
 	selectedItemStyle   = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
 	paginationStyle     = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
@@ -35,13 +35,14 @@ var (
 		"Enter AWS Secret",
 		"Enter Region",
 		"Enter Session Token",
-		"Clone Lambda - Enter Function",
-		"Upgrade Lambda - Enter Function",
+		"Set Name Extension",
+		"Clone Lambda",
+		"Upgrade Lambda",
 		"Save Settings",
 	}
 )
 
-// App States
+// App States vi aMenu
 type MenuState int
 
 const (
@@ -50,6 +51,16 @@ const (
 	StateResultDisplay
 	StateSpinner
 	StateTextInput
+	StateLambdaClone
+	StateLambdaUpdate
+)
+
+type OutroDisplayState int
+
+const (
+	OutroEsc OutroDisplayState = iota
+	OutroEnterClone
+	OutroEnterUpdate
 )
 
 // Messsage returend when the background job finishes
@@ -79,7 +90,8 @@ type MenuList struct {
 	textInputError      bool
 	jobOutcome          string
 	app                 *applicationMain
-	lambdaFunction      string
+	stateOutroDisplay   OutroDisplayState
+	lambdaSelectedList  []string
 }
 
 func (m MenuList) Init() tea.Cmd {
@@ -90,6 +102,10 @@ func (m MenuList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.state {
 	case StateMainMenu:
 		return m.updateMainMenu(msg)
+	case StateLambdaClone:
+		return m.updateLambdaClone(msg)
+	case StateLambdaUpdate:
+		return m.updateLambdaUpdate(msg)
 	case StateSpinner:
 		return m.updateSpinner(msg)
 	case StateTextInput:
@@ -101,24 +117,127 @@ func (m MenuList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
+func (m *MenuList) updateLambdaClone(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if m.list.FilterState() == list.Filtering {
+
+			switch msg.String() {
+			case "esc":
+				// Exit filtering mode instead of quitting the menu
+				m.list.ResetFilter()
+				return m, nil
+			case "enter":
+				// Keep it from selecting anything in filter mode
+
+				return m, nil
+			}
+		}
+		switch keypress := msg.String(); keypress {
+		case "esc", "Q", "q":
+			m.prevMenuState = m.state
+			m.prevState = m.state
+			m.state = StateMainMenu
+			m.fillListItems()
+			return m, nil
+		case " ":
+			i, ok := m.list.SelectedItem().(itemX)
+			if ok {
+				for idx, val := range m.list.Items() {
+					item := val.(itemX)
+					if item.name == i.name {
+						item.selected = !item.selected
+						m.list.SetItem(idx, item)
+					}
+				}
+			}
+		case "enter":
+			selectedItems := []string{}
+			for _, it := range m.list.Items() {
+				i := it.(itemX)
+				if i.selected {
+					selectedItems = append(selectedItems, i.name)
+				}
+			}
+			if len(selectedItems) > 0 {
+				m.lambdaSelectedList = selectedItems
+				m.backgroundJobResult = strings.Join(selectedItems, ", ")
+				m.prevState = m.state
+				m.stateOutroDisplay = OutroEnterClone
+				m.state = StateResultDisplay
+			}
+		}
+	}
+
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
+}
+
+func (m *MenuList) updateLambdaUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if m.list.FilterState() == list.Filtering {
+			switch msg.String() {
+			case "esc":
+				// Exit filtering mode instead of quitting the menu
+				m.list.ResetFilter()
+				return m, nil
+			case "enter":
+				// Keep it from selecting anything in filter mode
+				return m, nil
+			}
+		}
+		switch keypress := msg.String(); keypress {
+		case "esc", "Q", "q":
+			m.prevMenuState = m.state
+			m.prevState = m.state
+			m.state = StateMainMenu
+			m.fillListItems()
+			return m, nil
+		case " ":
+			i, ok := m.list.SelectedItem().(itemX)
+			if ok {
+				for idx, val := range m.list.Items() {
+					item := val.(itemX)
+					if item.name == i.name {
+						item.selected = !item.selected
+						m.list.SetItem(idx, item)
+					}
+				}
+			}
+		case "enter":
+			selectedItems := []string{}
+			for _, it := range m.list.Items() {
+				i := it.(itemX)
+				if i.selected {
+					selectedItems = append(selectedItems, i.name)
+				}
+			}
+			m.lambdaSelectedList = selectedItems
+			m.backgroundJobResult = strings.Join(selectedItems, ", ")
+			m.prevState = m.state
+			m.stateOutroDisplay = OutroEnterUpdate
+			m.state = StateResultDisplay
+			// return m, nil
+		}
+	}
+
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
+}
+
 func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	// case tea.MouseMsg:
-	// 	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
-	// 		err := clipboard.WriteAll(m.headerIP)
-	// 		if err != nil {
-	// 			fmt.Println("Failed to copy to clipboard:", err)
-	// 		}
-	// 	}
-	// 	return m, nil
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {
 		case "q", "ctrl+c", "Q":
 			return m, tea.Quit
 		case "enter":
-			i, ok := m.list.SelectedItem().(item)
+			i, ok := m.list.SelectedItem().(itemX)
 			if ok {
-				m.choice = string(i)
+				m.choice = string(i.name)
 				switch m.choice {
 				case menuTOP[0]:
 					m.prevMenuState = m.state
@@ -180,34 +299,28 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[4] //"Enter Lambda Function Name to Clone"
+					m.inputPrompt = menuTOP[4]
 					m.textInput = textinput.New()
-					m.textInput.Placeholder = "e.g., Lambda123"
+					m.textInput.Placeholder = "e.g., -dev"
 					m.textInput.Focus()
-					m.textInput.CharLimit = 200
-					m.textInput.Width = 200
+					m.textInput.CharLimit = 50
+					m.textInput.Width = 50
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-					// case menuTOP[4]:
-					// 	m.prevState = m.state
-					// 	m.prevMenuState = m.state
-					// 	m.state = StateSpinner
-					// 	return m, tea.Batch(m.spinner.Tick, m.backgroundUpdateLambda())
 				case menuTOP[5]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
-					m.state = StateTextInput
-					m.inputPrompt = menuTOP[5]
-					m.textInput = textinput.New()
-					m.textInput.Placeholder = "e.g., Lambda123"
-					m.textInput.Focus()
-					m.textInput.CharLimit = 200
-					m.textInput.Width = 200
-					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
-					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					m.state = StateLambdaClone
+					m.fillListItems()
 					return m, nil
 				case menuTOP[6]:
+					m.prevMenuState = m.state
+					m.prevState = m.state
+					m.state = StateLambdaUpdate
+					m.fillListItems()
+					return m, nil
+				case menuTOP[7]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
@@ -242,39 +355,23 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.inputPrompt {
 			case menuTOP[0]:
 				m.app.AwsKey = inputValue
-				m.backgroundJobResult = fmt.Sprintf("Saved AWS Key: %s", wordwrap.WrapString(inputValue, 90))
+				m.backgroundJobResult = fmt.Sprintf("Saved AWS Key: %s", inputValue)
 			case menuTOP[1]:
 				m.app.AwsSecret = inputValue
-				m.backgroundJobResult = fmt.Sprintf("Saved AWS Secret: %s", wordwrap.WrapString(inputValue, 90))
+				m.backgroundJobResult = fmt.Sprintf("Saved AWS Secret: %s", inputValue)
 			case menuTOP[2]:
 				m.app.Region = inputValue
-				m.backgroundJobResult = fmt.Sprintf("Saved Region: %s", wordwrap.WrapString(inputValue, 90))
+				m.backgroundJobResult = fmt.Sprintf("Saved Region: %s", inputValue)
 			case menuTOP[3]:
 				m.app.SessionToken = inputValue
-				m.backgroundJobResult = fmt.Sprintf("Saved Session Token: %s", wordwrap.WrapString(inputValue, 90))
+				m.backgroundJobResult = fmt.Sprintf("Saved Session Token: %s", inputValue)
 			case menuTOP[4]:
-				m.lambdaFunction = inputValue
-				m.backgroundJobResult = "Starting Lambda Cloning..."
-
-				// Transition to Spinner State
-				m.prevState = m.state
-				m.state = StateSpinner
-
-				// Run the spinner and background job
-				return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda(m.lambdaFunction))
-			case menuTOP[5]:
-				m.lambdaFunction = inputValue
-				m.backgroundJobResult = "Starting Lambda Updating..."
-
-				// Transition to Spinner State
-				m.prevState = m.state
-				m.state = StateSpinner
-
-				// Run the spinner and background job
-				return m, tea.Batch(m.spinner.Tick, m.backgroundUpdateLambda(m.lambdaFunction))
+				m.app.FileNameExtension = inputValue
+				m.backgroundJobResult = fmt.Sprintf("Saved File Name Extension: %s", inputValue)
 			}
 
 			m.prevState = m.state
+			m.stateOutroDisplay = OutroEsc
 			m.state = StateResultDisplay
 			return m, nil
 
@@ -304,6 +401,8 @@ func (m *MenuList) updateSpinner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case backgroundJobMsg:
 		m.backgroundJobResult = m.jobOutcome + "\n\n" + msg.result + "\n"
+		m.prevState = m.state
+		m.stateOutroDisplay = OutroEsc
 		m.state = StateResultDisplay
 		return m, nil
 	// case continueLambda:
@@ -320,42 +419,60 @@ func (m *MenuList) updateResultDisplay(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc":
-			if m.textInputError {
+			if m.prevState == StateLambdaClone || m.prevState == StateLambdaUpdate {
 				m.state = m.prevState
 			} else {
 				m.state = m.prevMenuState
 			}
-			m.updateListItems()
+
+			m.fillListItems()
 			return m, nil
 		case "ctrl+c":
 			return m, tea.Quit
+		case "enter":
+			if m.prevState == StateLambdaClone {
+				// m.prevState = m.state
+				m.state = StateSpinner
+				return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda())
+			} else if m.prevState == StateLambdaUpdate {
+				// m.prevState = m.state
+				m.state = StateSpinner
+				return m, tea.Batch(m.spinner.Tick, m.backgroundUpdateLambda())
+			}
 		}
 	}
 	return m, nil
 }
 
 func (m MenuList) viewResultDisplay() string {
-	outro := "Press 'esc' to return."
-	outroRender := lipgloss.NewStyle().Foreground(lipgloss.Color("231")).Bold(true).Render(outro)
-	lipgloss.NewStyle().Foreground(lipgloss.Color("231")).Bold(true)
-	if m.textInputError {
-		m.backgroundJobResult = lipgloss.NewStyle().Foreground(lipgloss.Color(textErrorColorFront)).Background(lipgloss.Color(textErrorColorBack)).Bold(true).Render(m.backgroundJobResult)
-	} else {
-		m.backgroundJobResult = lipgloss.NewStyle().Foreground(lipgloss.Color(textResultJob)).Render(m.backgroundJobResult)
+
+	var outro string
+	switch m.stateOutroDisplay {
+	case OutroEsc:
+		outro = "Press 'esc' to return."
+	case OutroEnterClone:
+		outro = "Press 'enter' to Clone these Lambda functions"
+	case OutroEnterUpdate:
+		outro = "Press 'enter' to Upgrade these Lambda functions"
 	}
+
+	outroRender := lipgloss.NewStyle().Foreground(lipgloss.Color("231")).Bold(true).Render(outro)
+	if m.textInputError {
+		m.backgroundJobResult = wordwrap.WrapString(lipgloss.NewStyle().Foreground(lipgloss.Color(textErrorColorFront)).Background(lipgloss.Color(textErrorColorBack)).Bold(true).Render(m.backgroundJobResult), 90)
+	} else {
+		m.backgroundJobResult = wordwrap.WrapString(lipgloss.NewStyle().Foreground(lipgloss.Color(textResultJob)).Render(m.backgroundJobResult), 90)
+	}
+
 	return fmt.Sprintf("\n\n%s\n\n%s", m.backgroundJobResult, outroRender)
-
-	// //repeat interval
-	// if m.configSettings.Interval > 0 {
-
-	// }
 }
 
 func (m MenuList) View() string {
 	switch m.state {
-	case StateMainMenu, StateSettingsMenu:
+	case StateMainMenu:
 		m.header = m.app.getHeader()
 		return m.header + "\n" + m.list.View()
+	case StateLambdaClone, StateLambdaUpdate:
+		return m.list.View()
 	case StateSpinner:
 		return m.viewSpinner()
 	case StateTextInput:
@@ -381,22 +498,30 @@ func (m MenuList) viewTextInput() string {
 
 }
 
-func (m *MenuList) updateListItems() {
+func (m *MenuList) fillListItems() {
+	m.list = SetupListMenu(m.state)
 	switch m.state {
 	case StateMainMenu:
 		items := []list.Item{}
 		for _, value := range menuTOP {
-			items = append(items, item(value))
+			items = append(items, itemX{value, false, value})
 		}
 		m.list.SetItems(items)
-		// case StateSettingsMenu:
-		// 	items := []list.Item{}
-		// 	for _, value := range menuSettings {
-		// 		items = append(items, item(value[0]))
-		// 	}
-		// 	m.list.SetItems(items)
-	}
+	case StateLambdaClone, StateLambdaUpdate:
+		lambdas, err := m.app.listAllLambdaFunctions()
+		if err != nil {
+			m.backgroundJobResult = err.Error()
+			m.stateOutroDisplay = OutroEsc
+			m.state = StateResultDisplay
+			break
+		}
+		items := []list.Item{}
+		for _, value := range lambdas {
+			items = append(items, itemX{value[0], false, fmt.Sprintf("%s   %s", value[0], lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(value[1]))})
+		}
 
+		m.list.SetItems(items)
+	}
 	m.list.ResetSelected()
 }
 
@@ -411,55 +536,85 @@ func (m *MenuList) backgroundSaveSettings() tea.Cmd {
 	}
 }
 
-func (m *MenuList) backgroundCloneLambda(lambdaFuncName string) tea.Cmd {
+func (m *MenuList) backgroundCloneLambda() tea.Cmd {
 	return func() tea.Msg {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(spinnerColor)) //white = 231
 		m.spinnerMsg = "Cloning Lambda"
-		resultX := "The Lamb is cloned"
+		resultX := "The Lamb is Cloned"
 
-		message, err := m.app.cloneLambda(lambdaFuncName, fmt.Sprintf("%s-p313", lambdaFuncName))
-		if err != nil {
-			resultX = message
+		var newNameX string
+		for _, v := range m.lambdaSelectedList {
+			if strings.Contains(v, m.app.FileNameExtension) {
+				newNameX = fmt.Sprintf("%s-p313%s", strings.Replace(v, m.app.FileNameExtension, "", 1), m.app.FileNameExtension)
+			} else {
+				newNameX = fmt.Sprintf("%s-p313%s", v, m.app.FileNameExtension)
+			}
+			message, err := m.app.cloneLambda(v, newNameX)
+			if err != nil {
+				resultX = message
+				continue
+			}
 		}
 		return backgroundJobMsg{result: resultX}
 	}
 }
 
-func (m *MenuList) backgroundUpdateLambda(lambdaFunctionName string) tea.Cmd {
+func (m *MenuList) backgroundUpdateLambda() tea.Cmd {
 	return func() tea.Msg {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(spinnerColor)) //white = 231
 		m.spinnerMsg = "Upgrading Lambda Runtime"
 		resultX := "The Lamb is Upgraded"
 
-		message, err := m.app.upgradeLambda(lambdaFunctionName)
-		if err != nil {
-			resultX = message
+		for _, v := range m.lambdaSelectedList {
+			message, err := m.app.upgradeLambda(v)
+			if err != nil {
+				resultX = message
+				continue
+			}
 		}
 		return backgroundJobMsg{result: resultX}
 	}
 }
 
-func ShowMenu(app *applicationMain) {
-
-	const listWidth = 90
-	const listHeight = 14
+func SetupListMenu(currentState MenuState) list.Model {
+	listWidth := 90
+	listHeight := 12
 
 	// Initialize the list with empty items; items will be set in updateListItems
-	l := list.New([]list.Item{}, itemDelegate{}, listWidth, listHeight)
-	l.Title = ""
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.SetShowTitle(true)
-	l.Styles.Title = lipTitleStyle
-	l.Styles.PaginationStyle = paginationStyle
-	l.Styles.HelpStyle = helpStyle
-	l.KeyMap.ShowFullHelp = key.NewBinding() // remove '?' help option
+	lm := list.New([]list.Item{}, itemDelegateX{currentState: currentState}, listWidth, listHeight)
+	lm.SetShowStatusBar(false)
+	if currentState == StateMainMenu {
+		lm.SetFilteringEnabled(false)
+		lm.SetShowTitle(false)
+	} else if currentState == StateLambdaClone {
+		lm.SetHeight(30)
+		lm.SetFilteringEnabled(true)
+		lm.SetShowTitle(true)
+		lm.Title = "Available Lambda Functions - Clone"
+	} else if currentState == StateLambdaUpdate {
+		lm.SetHeight(30)
+		lm.SetFilteringEnabled(true)
+		lm.SetShowTitle(true)
+		lm.Title = "Available Lambda Functions - Upgrade"
+	}
+	lm.Styles.Title = lipTitleStyle
+	lm.Styles.PaginationStyle = paginationStyle
+	lm.Styles.HelpStyle = helpStyle
+	lm.KeyMap.ShowFullHelp = key.NewBinding() // remove '?' help option
+	lm.KeyMap.Quit = key.NewBinding(
+		key.WithKeys("esc", "ctrl+c"),
+		key.WithHelp("esc", "quit"),
+	)
+
+	return lm
+}
+
+func ShowMenu(app *applicationMain) {
 
 	s := spinner.New()
 	s.Spinner = spinner.Pulse
 
 	m := MenuList{
-		list:       l,
 		header:     app.getHeader(),
 		state:      StateMainMenu,
 		spinner:    s,
@@ -467,14 +622,9 @@ func ShowMenu(app *applicationMain) {
 		app:        app,
 	}
 
-	m.updateListItems()
+	m.fillListItems()
 
-	m.list.KeyMap.Quit = key.NewBinding(
-		key.WithKeys("esc", "ctrl+c"),
-		key.WithHelp("esc", "quit"),
-	)
-
-	//show Menu
+	//start Bubbles loop
 	_, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
 	if err != nil {
 		fmt.Println("Error running program:", err)
@@ -482,29 +632,49 @@ func ShowMenu(app *applicationMain) {
 	}
 }
 
-type item string
+// MENU STRUCTURE
+type itemX struct {
+	name        string
+	selected    bool
+	displayName string
+}
 
-func (i item) FilterValue() string { return "" }
+func (i itemX) FilterValue() string { return strings.ToLower(i.displayName) }
 
-type itemDelegate struct{}
+type itemDelegateX struct {
+	currentState MenuState // Add any fields needed for conditional logic
+}
 
-func (d itemDelegate) Height() int                             { return 1 }
-func (d itemDelegate) Spacing() int                            { return 0 }
-func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	i, ok := listItem.(item)
+func (d itemDelegateX) Height() int                             { return 1 }
+func (d itemDelegateX) Spacing() int                            { return 0 }
+func (d itemDelegateX) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+func (d itemDelegateX) Render(w io.Writer, lm list.Model, index int, listItem list.Item) {
+	i, ok := listItem.(itemX)
 	if !ok {
 		return
 	}
 
-	str := fmt.Sprintf("%d. %s", index+1, i)
-
 	fn := itemStyle.Render
-	if index == m.Index() {
-		fn = func(s ...string) string {
-			return selectedItemStyle.Render("> " + strings.Join(s, " "))
-		}
-	}
 
-	fmt.Fprint(w, fn(str))
+	switch d.currentState {
+	case StateMainMenu:
+		str := fmt.Sprintf("%d. %s", index+1, i.displayName)
+		if index == lm.Index() {
+			fn = func(s ...string) string {
+				return selectedItemStyle.Render("> " + strings.Join(s, " "))
+			}
+		}
+		fmt.Fprint(w, fn(str))
+	case StateLambdaClone, StateLambdaUpdate:
+		checkbox := "[ ]"
+		if i.selected {
+			checkbox = "[x]"
+		}
+		cursor := "  "
+		if index == lm.Index() {
+			cursor = "> "
+		}
+		str := fmt.Sprintf("%s%s %s", cursor, checkbox, i.displayName)
+		fmt.Fprint(w, str)
+	}
 }

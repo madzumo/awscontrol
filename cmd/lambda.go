@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -69,7 +68,7 @@ func (app *applicationMain) cloneLambda(functionName string, functionNameNew str
 		}
 	}
 
-	//getn environment
+	//get environment
 	var env *types.Environment
 	if result.Configuration.Environment != nil {
 		env = &types.Environment{
@@ -124,16 +123,26 @@ func (app *applicationMain) upgradeLambda(lambdaFunctionName string) (string, er
 	return "", nil
 }
 
-func (app *applicationMain) listAllFunctions(clientLamb *lambda.Client) (string, error) {
+func (app *applicationMain) listAllLambdaFunctions() (LambdaItems [][]string, err error) {
 	ctx := context.Background()
+	clientLamb, err := app.createLambdaClient()
+	if err != nil {
+		LambdaItems = append(LambdaItems, []string{fmt.Sprintf("Failed to create Lambda connection:\n%v", err), ""})
+		return LambdaItems, err
+	}
+
 	resp, err := clientLamb.ListFunctions(ctx, &lambda.ListFunctionsInput{})
 	if err != nil {
-		return fmt.Sprintf("Failed to list Lambda functions:\n%v", err), err
+		LambdaItems = append(LambdaItems, []string{fmt.Sprintf("Failed to list Lambda functions:\n%v", err), ""})
+		return LambdaItems, err
 	}
-	fmt.Println("Available Lambda Functions:")
+	// fmt.Println("Available Lambda Functions:")
 	for _, fn := range resp.Functions {
-		fmt.Println(*fn.FunctionName)
+		// returnStr = append(returnStr, fmt.Sprintf("%s   %s", aws.ToString(fn.FunctionName),
+		// 	lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(string(fn.Runtime))))
+
+		LambdaItems = append(LambdaItems, []string{aws.ToString(fn.FunctionName), string(fn.Runtime)})
 	}
-	time.Sleep(2 * time.Second)
-	return "", nil
+
+	return LambdaItems, nil
 }
