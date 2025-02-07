@@ -587,12 +587,12 @@ func SetupListMenu(currentState MenuState) list.Model {
 		lm.SetFilteringEnabled(false)
 		lm.SetShowTitle(false)
 	} else if currentState == StateLambdaClone {
-		lm.SetHeight(30)
+		lm.SetHeight(27)
 		lm.SetFilteringEnabled(true)
 		lm.SetShowTitle(true)
 		lm.Title = "Available Lambda Functions - Clone"
 	} else if currentState == StateLambdaUpdate {
-		lm.SetHeight(30)
+		lm.SetHeight(27)
 		lm.SetFilteringEnabled(true)
 		lm.SetShowTitle(true)
 		lm.Title = "Available Lambda Functions - Upgrade"

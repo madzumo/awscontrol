@@ -138,9 +138,6 @@ func (app *applicationMain) listAllLambdaFunctions() (LambdaItems [][]string, er
 	}
 	// fmt.Println("Available Lambda Functions:")
 	for _, fn := range resp.Functions {
-		// returnStr = append(returnStr, fmt.Sprintf("%s   %s", aws.ToString(fn.FunctionName),
-		// 	lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(string(fn.Runtime))))
-
 		LambdaItems = append(LambdaItems, []string{aws.ToString(fn.FunctionName), string(fn.Runtime)})
 	}
 
