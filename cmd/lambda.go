@@ -58,7 +58,7 @@ func (app *applicationMain) cloneLambda(functionName string, functionNameNew str
 		return fmt.Sprintf("Failed to read code zip file content:\n%v", err), err
 	}
 
-	//get layer information
+	//layers
 	var layerArns []string
 	if result.Configuration.Layers != nil {
 		for _, layer := range result.Configuration.Layers {
@@ -68,7 +68,6 @@ func (app *applicationMain) cloneLambda(functionName string, functionNameNew str
 		}
 	}
 
-	//get environment
 	var env *types.Environment
 	if result.Configuration.Environment != nil {
 		env = &types.Environment{
