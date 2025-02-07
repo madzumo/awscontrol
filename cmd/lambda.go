@@ -237,14 +237,17 @@ func (app *applicationMain) listAllLambdaFunctions() (LambdaItems [][]string, er
 		return LambdaItems, err
 	}
 
-	resp, err := clientLamb.ListFunctions(ctx, &lambda.ListFunctionsInput{})
-	if err != nil {
-		LambdaItems = append(LambdaItems, []string{fmt.Sprintf("Failed to list Lambda functions:\n%v", err), ""})
-		return LambdaItems, err
-	}
-	// fmt.Println("Available Lambda Functions:")
-	for _, fn := range resp.Functions {
-		LambdaItems = append(LambdaItems, []string{aws.ToString(fn.FunctionName), string(fn.Runtime)})
+	//create paginator
+	paginator := lambda.NewListFunctionsPaginator(clientLamb, &lambda.ListFunctionsInput{})
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return LambdaItems, fmt.Errorf("failed to retrieve next page of functions:\n%v", err)
+		}
+
+		for _, fn := range output.Functions {
+			LambdaItems = append(LambdaItems, []string{aws.ToString(fn.FunctionName), string(fn.Runtime)})
+		}
 	}
 
 	return LambdaItems, nil
