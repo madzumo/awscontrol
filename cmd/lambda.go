@@ -76,6 +76,13 @@ func (app *applicationMain) cloneLambda(functionName string, functionNameNew str
 		}
 	}
 
+	var vpcConfig *types.VpcConfig
+	if result.Configuration.VpcConfig != nil {
+		vpcConfig = &types.VpcConfig{
+			SecurityGroupIds: result.Configuration.VpcConfig.SecurityGroupIds,
+			SubnetIds:        result.Configuration.VpcConfig.SubnetIds,
+		}
+	}
 	//create the new lambda
 	_, err = clientLamb.CreateFunction(ctx, &lambda.CreateFunctionInput{
 		FunctionName: aws.String(functionNameNew),
@@ -85,15 +92,19 @@ func (app *applicationMain) cloneLambda(functionName string, functionNameNew str
 		Code: &types.FunctionCode{
 			ZipFile: zipBytes,
 		},
-		Timeout:       result.Configuration.Timeout,
-		MemorySize:    result.Configuration.MemorySize,
-		Environment:   env,
-		Layers:        layerArns,
-		TracingConfig: (*types.TracingConfig)(result.Configuration.TracingConfig),
-		Architectures: result.Configuration.Architectures,
-		PackageType:   result.Configuration.PackageType,
-		Description:   result.Configuration.Description,
-		Publish:       *aws.Bool(true),
+		Timeout:           result.Configuration.Timeout,
+		MemorySize:        result.Configuration.MemorySize,
+		Environment:       env,
+		Layers:            layerArns,
+		TracingConfig:     (*types.TracingConfig)(result.Configuration.TracingConfig),
+		Architectures:     result.Configuration.Architectures,
+		PackageType:       result.Configuration.PackageType,
+		Description:       result.Configuration.Description,
+		Publish:           *aws.Bool(true),
+		VpcConfig:         vpcConfig,                              //✅
+		DeadLetterConfig:  result.Configuration.DeadLetterConfig,  //✅
+		FileSystemConfigs: result.Configuration.FileSystemConfigs, //✅
+		EphemeralStorage:  result.Configuration.EphemeralStorage,  //✅
 	})
 	if err != nil {
 		return fmt.Sprintf("Failed to create a new lambda function:\n%v", err), err
