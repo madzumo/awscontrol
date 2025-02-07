@@ -27,12 +27,12 @@ func (app *applicationMain) createLambdaClient() (*lambda.Client, error) {
 	return client, nil
 }
 
-func (app *applicationMain) cloneLambda(functionName string, functionNameNew string) (string, error) {
+func (app *applicationMain) cloneLambda(functionName string, functionNameNew string) error {
 	ctx := context.Background()
 	//create lambda client
 	clientLamb, err := app.createLambdaClient()
 	if err != nil {
-		return fmt.Sprintf("Failed to create Lambda connection:\n%v", err), err
+		return fmt.Errorf("failed to create Lambda connection:\n%v", err)
 	}
 
 	//get the lambda function
@@ -40,22 +40,22 @@ func (app *applicationMain) cloneLambda(functionName string, functionNameNew str
 		FunctionName: aws.String(functionName),
 	})
 	if err != nil {
-		return fmt.Sprintf("Failed to get function details:\n%v", err), err
+		return fmt.Errorf("failed to get function details:\n%v", err)
 	}
 
 	//download the lambda Zip file
 	if result.Code == nil || result.Code.Location == nil {
-		return "No code location found for the function", fmt.Errorf("missing code location")
+		return fmt.Errorf("no code location found for the function")
 	}
 	resp, err := http.Get(*result.Code.Location)
 	if err != nil {
-		return fmt.Sprintf("Failed to download code function:\n%v", err), err
+		return fmt.Errorf("failed to download code function:\n%v", err)
 	}
 	defer resp.Body.Close()
 
 	zipBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Sprintf("Failed to read code zip file content:\n%v", err), err
+		return fmt.Errorf("failed to read code zip file content:\n%v", err)
 	}
 
 	//layers
@@ -68,6 +68,7 @@ func (app *applicationMain) cloneLambda(functionName string, functionNameNew str
 		}
 	}
 
+	//environment variables
 	var env *types.Environment
 	if result.Configuration.Environment != nil {
 		env = &types.Environment{
@@ -75,6 +76,7 @@ func (app *applicationMain) cloneLambda(functionName string, functionNameNew str
 		}
 	}
 
+	//vpc config
 	var vpcConfig *types.VpcConfig
 	if result.Configuration.VpcConfig != nil {
 		vpcConfig = &types.VpcConfig{
@@ -82,8 +84,9 @@ func (app *applicationMain) cloneLambda(functionName string, functionNameNew str
 			SubnetIds:        result.Configuration.VpcConfig.SubnetIds,
 		}
 	}
+
 	//create the new lambda
-	_, err = clientLamb.CreateFunction(ctx, &lambda.CreateFunctionInput{
+	newLamb, err := clientLamb.CreateFunction(ctx, &lambda.CreateFunctionInput{
 		FunctionName: aws.String(functionNameNew),
 		Runtime:      result.Configuration.Runtime,
 		Role:         result.Configuration.Role,
@@ -100,16 +103,109 @@ func (app *applicationMain) cloneLambda(functionName string, functionNameNew str
 		PackageType:       result.Configuration.PackageType,
 		Description:       result.Configuration.Description,
 		Publish:           *aws.Bool(true),
-		VpcConfig:         vpcConfig,                              //✅
-		DeadLetterConfig:  result.Configuration.DeadLetterConfig,  //✅
-		FileSystemConfigs: result.Configuration.FileSystemConfigs, //✅
-		EphemeralStorage:  result.Configuration.EphemeralStorage,  //✅
+		VpcConfig:         vpcConfig,
+		DeadLetterConfig:  result.Configuration.DeadLetterConfig,
+		FileSystemConfigs: result.Configuration.FileSystemConfigs,
+		EphemeralStorage:  result.Configuration.EphemeralStorage,
 	})
 	if err != nil {
-		return fmt.Sprintf("Failed to create a new lambda function:\n%v", err), err
+		return fmt.Errorf("failed to create a new lambda function:\n%v", err)
 	}
 
-	return "", nil
+	//copy tags
+	tagResp, err := clientLamb.ListTags(ctx, &lambda.ListTagsInput{
+		Resource: result.Configuration.FunctionArn,
+	})
+	if err == nil && len(tagResp.Tags) > 0 {
+		_, err = clientLamb.TagResource(ctx, &lambda.TagResourceInput{
+			Resource: newLamb.FunctionArn,
+			Tags:     tagResp.Tags,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to add tags to new Lambda function: %v", err)
+		}
+	}
+
+	// Copy Concurrency (if set).
+	concurrencyResp, err := clientLamb.GetFunctionConcurrency(ctx, &lambda.GetFunctionConcurrencyInput{
+		FunctionName: aws.String(functionName),
+	})
+	if err == nil && concurrencyResp.ReservedConcurrentExecutions != nil {
+		_, err = clientLamb.PutFunctionConcurrency(ctx, &lambda.PutFunctionConcurrencyInput{
+			FunctionName:                 aws.String(functionNameNew),
+			ReservedConcurrentExecutions: concurrencyResp.ReservedConcurrentExecutions,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to set concurrency on new Lambda function: %v", err)
+		}
+	}
+
+	// Copy Event Source Mappings.
+	eventSrcResp, err := clientLamb.ListEventSourceMappings(ctx, &lambda.ListEventSourceMappingsInput{
+		FunctionName: aws.String(functionName),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list event source mappings: %v", err)
+	}
+
+	for _, src := range eventSrcResp.EventSourceMappings {
+		// Determine if the mapping is enabled by comparing its State to "Enabled"
+		enabled := false
+		if src.State != nil && *src.State == "Enabled" {
+			enabled = true
+		}
+		_, err = clientLamb.CreateEventSourceMapping(ctx, &lambda.CreateEventSourceMappingInput{
+			EventSourceArn:                 src.EventSourceArn,
+			FunctionName:                   aws.String(functionNameNew),
+			BatchSize:                      src.BatchSize,
+			Enabled:                        aws.Bool(enabled),
+			MaximumBatchingWindowInSeconds: src.MaximumBatchingWindowInSeconds,
+			StartingPosition:               src.StartingPosition, // if applicable for your event source
+			// Add other necessary fields here.
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create event source mapping on new Lambda function: %v", err)
+		}
+	}
+
+	//resource policies
+	policyResp, err := clientLamb.GetPolicy(ctx, &lambda.GetPolicyInput{
+		FunctionName: aws.String(functionName),
+	})
+	if err == nil && policyResp.Policy != nil {
+		_, err = clientLamb.AddPermission(ctx, &lambda.AddPermissionInput{
+			FunctionName: newLamb.FunctionArn,
+			StatementId:  aws.String("ClonePermission"),
+			Action:       aws.String("lambda:InvokeFunction"),
+			Principal:    aws.String("*"),
+			SourceArn:    newLamb.FunctionArn, // Adjust as needed.
+		})
+		if err != nil {
+			return fmt.Errorf("failed to add permission on new Lambda function: %v", err)
+		}
+	}
+
+	//aliases
+	aliasResp, err := clientLamb.ListAliases(ctx, &lambda.ListAliasesInput{
+		FunctionName: aws.String(functionName),
+	})
+	if err == nil {
+		for _, alias := range aliasResp.Aliases {
+			// NOTE: Aliases point to a published version. You may need to publish a new version
+			// for the new Lambda and then create aliases pointing to that version.
+			_, err = clientLamb.CreateAlias(ctx, &lambda.CreateAliasInput{
+				FunctionName:    aws.String(functionNameNew),
+				Name:            alias.Name,
+				FunctionVersion: alias.FunctionVersion,
+				Description:     alias.Description,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to create alias on new Lambda function: %v", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (app *applicationMain) upgradeLambda(lambdaFunctionName string) (string, error) {
