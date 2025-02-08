@@ -63,15 +63,9 @@ const (
 	OutroEnterUpdate
 )
 
-// Messsage returend when the background job finishes
 type backgroundJobMsg struct {
 	result string
 }
-
-// // message returned when you have to continue the prompting of data
-// type continueLambda struct {
-// 	result string
-// }
 
 type JobList int
 
@@ -121,54 +115,64 @@ func (m *MenuList) updateLambdaClone(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.list.FilterState() == list.Filtering {
-
-			switch msg.String() {
+			switch keypress := msg.String(); keypress {
 			case "esc":
 				// Exit filtering mode instead of quitting the menu
 				m.list.ResetFilter()
 				return m, nil
-			case "enter":
-				// Keep it from selecting anything in filter mode
-
-				return m, nil
 			}
-		}
-		switch keypress := msg.String(); keypress {
-		case "esc", "Q", "q":
-			m.prevMenuState = m.state
-			m.prevState = m.state
-			m.state = StateMainMenu
-			m.fillListItems()
-			return m, nil
-		case " ":
-			i, ok := m.list.SelectedItem().(itemX)
-			if ok {
-				for idx, val := range m.list.Items() {
-					item := val.(itemX)
-					if item.name == i.name {
-						item.selected = !item.selected
-						m.list.SetItem(idx, item)
+		} else if m.list.FilterState() == list.FilterApplied {
+			switch keypress := msg.String(); keypress {
+			case " ":
+				i, ok := m.list.SelectedItem().(itemX)
+				if ok {
+					for idx, val := range m.list.Items() {
+						item := val.(itemX)
+						if item.name == i.name {
+							item.selected = !item.selected
+							m.list.SetItem(idx, item)
+						}
 					}
 				}
 			}
-		case "enter":
-			selectedItems := []string{}
-			for _, it := range m.list.Items() {
-				i := it.(itemX)
-				if i.selected {
-					selectedItems = append(selectedItems, i.name)
-				}
-			}
-			if len(selectedItems) > 0 {
-				m.lambdaSelectedList = selectedItems
-				m.backgroundJobResult = strings.Join(selectedItems, ", ")
+		} else {
+			//m.list.FilterState() != list.FilterApplied
+			switch keypress := msg.String(); keypress {
+			case "esc", "Q", "q":
+				m.prevMenuState = m.state
 				m.prevState = m.state
-				m.stateOutroDisplay = OutroEnterClone
-				m.state = StateResultDisplay
+				m.state = StateMainMenu
+				m.fillListItems()
+				return m, nil
+			case " ":
+				i, ok := m.list.SelectedItem().(itemX)
+				if ok {
+					for idx, val := range m.list.Items() {
+						item := val.(itemX)
+						if item.name == i.name {
+							item.selected = !item.selected
+							m.list.SetItem(idx, item)
+						}
+					}
+				}
+			case "enter":
+				selectedItems := []string{}
+				for _, it := range m.list.Items() {
+					i := it.(itemX)
+					if i.selected {
+						selectedItems = append(selectedItems, i.name)
+					}
+				}
+				if len(selectedItems) > 0 {
+					m.lambdaSelectedList = selectedItems
+					m.backgroundJobResult = strings.Join(selectedItems, ", ")
+					m.prevState = m.state
+					m.stateOutroDisplay = OutroEnterClone
+					m.state = StateResultDisplay
+				}
 			}
 		}
 	}
-
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
@@ -177,17 +181,17 @@ func (m *MenuList) updateLambdaClone(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *MenuList) updateLambdaUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if m.list.FilterState() == list.Filtering {
-			switch msg.String() {
-			case "esc":
-				// Exit filtering mode instead of quitting the menu
-				m.list.ResetFilter()
-				return m, nil
-			case "enter":
-				// Keep it from selecting anything in filter mode
-				return m, nil
-			}
-		}
+		// if m.list.FilterState() == list.Filtering {
+		// 	switch msg.String() {
+		// 	case "esc":
+		// 		// Exit filtering mode instead of quitting the menu
+		// 		m.list.ResetFilter()
+		// 		return m, nil
+		// 	case "enter":
+		// 		// Keep it from selecting anything in filter mode
+		// 		return m, nil
+		// 	}
+		// }
 		switch keypress := msg.String(); keypress {
 		case "esc", "Q", "q":
 			m.prevMenuState = m.state
@@ -424,7 +428,6 @@ func (m *MenuList) updateResultDisplay(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.state = m.prevMenuState
 			}
-
 			m.fillListItems()
 			return m, nil
 		case "ctrl+c":
@@ -605,7 +608,6 @@ func SetupListMenu(currentState MenuState) list.Model {
 		key.WithKeys("esc", "ctrl+c"),
 		key.WithHelp("esc", "quit"),
 	)
-
 	return lm
 }
 
