@@ -22,9 +22,9 @@ var (
 	selectedItemStyle   = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
 	paginationStyle     = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
 	helpStyle           = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
-	textPromptColor     = "120" //"100" //nice: 141
-	textInputColor      = "140" //"40" //nice: 193
-	textConfirmColor    = "86"
+	textPromptColor     = "120"
+	textInputColor      = "140"
+	textConfirmColor    = "226"
 	spinnerColor        = "226"
 	textErrorColorBack  = "1"
 	textErrorColorFront = "15"
@@ -620,7 +620,7 @@ func (m MenuList) viewResultDisplay() string {
 	if m.textInputError {
 		m.backgroundJobResult = lipgloss.NewStyle().Foreground(lipgloss.Color(textErrorColorFront)).Background(lipgloss.Color(textErrorColorBack)).Bold(true).Render(m.backgroundJobResult)
 	} else {
-		m.backgroundJobResult = lipgloss.NewStyle().Foreground(lipgloss.Color(spinnerColor)).Render(m.backgroundJobResult)
+		m.backgroundJobResult = lipgloss.NewStyle().Foreground(lipgloss.Color(textConfirmColor)).Render(m.backgroundJobResult)
 	}
 
 	return fmt.Sprintf("\n\n%s\n\n%s", wordwrap.WrapString(m.backgroundJobResult, 90), outroRender)
