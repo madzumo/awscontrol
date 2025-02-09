@@ -722,9 +722,9 @@ func (m *MenuList) backgroundCloneLambda() tea.Cmd {
 		var newNameX string
 		for _, v := range m.lambdaSelectedList {
 			if strings.Contains(v, m.app.FileNameExtension) {
-				newNameX = fmt.Sprintf("%s-py313%s", strings.Replace(v, m.app.FileNameExtension, "", 1), m.app.FileNameExtension)
+				newNameX = fmt.Sprintf("%s-p313%s", strings.Replace(v, m.app.FileNameExtension, "", 1), m.app.FileNameExtension)
 			} else {
-				newNameX = fmt.Sprintf("%s-py313%s", v, m.app.FileNameExtension)
+				newNameX = fmt.Sprintf("%s-p313%s", v, m.app.FileNameExtension)
 			}
 			err := m.app.cloneLambda(v, newNameX)
 			if err != nil {
