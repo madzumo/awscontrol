@@ -208,10 +208,10 @@ func (app *applicationMain) cloneLambda(functionName string, functionNameNew str
 	return nil
 }
 
-func (app *applicationMain) upgradeLambda(lambdaFunctionName string) (string, error) {
+func (app *applicationMain) upgradeLambda(lambdaFunctionName string) error {
 	clientLamb, err := app.createLambdaClient()
 	if err != nil {
-		return fmt.Sprintf("Failed to create Lambda connection:\n%v", err), err
+		return fmt.Errorf("failed to create Lambda connection:\n%v", err)
 	}
 
 	newRuntime := types.RuntimePython313
@@ -223,18 +223,17 @@ func (app *applicationMain) upgradeLambda(lambdaFunctionName string) (string, er
 
 	_, err = clientLamb.UpdateFunctionConfiguration(context.TODO(), input)
 	if err != nil {
-		return fmt.Sprintf("Failed to udpate Lambda function\n%v", err), err
+		return fmt.Errorf("failed to udpate Lambda function\n%v", err)
 	}
 
-	return "", nil
+	return nil
 }
 
 func (app *applicationMain) listAllLambdaFunctions() (LambdaItems [][]string, err error) {
 	ctx := context.Background()
 	clientLamb, err := app.createLambdaClient()
 	if err != nil {
-		LambdaItems = append(LambdaItems, []string{fmt.Sprintf("Failed to create Lambda connection:\n%v", err), ""})
-		return LambdaItems, err
+		return LambdaItems, fmt.Errorf("failed to create Lambda connection:\n%v", err)
 	}
 
 	//create paginator
