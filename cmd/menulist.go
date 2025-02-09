@@ -18,6 +18,7 @@ import (
 
 var (
 	lipTitleStyle       = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("45"))
+	lipTitleStyleFilter = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("207"))
 	itemStyle           = lipgloss.NewStyle().PaddingLeft(4)
 	selectedItemStyle   = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
 	paginationStyle     = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
@@ -42,7 +43,54 @@ var (
 	}
 )
 
-// App States vi aMenu
+// MENU STRUCTURE
+type itemX struct {
+	name        string
+	selected    bool
+	displayName string
+}
+
+func (i *itemX) FilterValue() string { return i.displayName }
+
+type itemDelegateX struct {
+	currentState MenuState
+}
+
+func (d itemDelegateX) Height() int                             { return 1 }
+func (d itemDelegateX) Spacing() int                            { return 0 }
+func (d itemDelegateX) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+func (d itemDelegateX) Render(w io.Writer, lm list.Model, index int, listItem list.Item) {
+	i, ok := listItem.(*itemX)
+	if !ok {
+		return
+	}
+
+	fn := itemStyle.Render
+
+	switch d.currentState {
+	case StateMainMenu:
+		str := fmt.Sprintf("%d. %s", index+1, i.displayName)
+		if index == lm.Index() {
+			fn = func(s ...string) string {
+				return selectedItemStyle.Render("> " + strings.Join(s, " "))
+			}
+		}
+		fmt.Fprint(w, fn(str))
+	case StateLambdaClone, StateLambdaUpdate:
+		checkbox := "[ ]"
+		if i.selected {
+			checkbox = "[x]"
+		}
+		cursor := "  "
+		if index == lm.Index() {
+			cursor = "> "
+		}
+		str := fmt.Sprintf("%s%s %s", cursor, checkbox, i.displayName)
+		fmt.Fprint(w, str)
+	}
+}
+
+// App States via Menu
 type MenuState int
 
 const (
@@ -115,29 +163,17 @@ func (m *MenuList) updateLambdaClone(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.list.FilterState() == list.Filtering {
-			switch keypress := msg.String(); keypress {
+			switch msg.String() {
 			case "esc":
-				// Exit filtering mode instead of quitting the menu
 				m.list.ResetFilter()
+				m.list.Title = "Available Lambda Functions - Clone"
+				m.list.Styles.Title = lipTitleStyle
 				return m, nil
 			}
-		} else if m.list.FilterState() == list.FilterApplied {
-			switch keypress := msg.String(); keypress {
-			case " ":
-				i, ok := m.list.SelectedItem().(itemX)
-				if ok {
-					for idx, val := range m.list.Items() {
-						item := val.(itemX)
-						if item.name == i.name {
-							item.selected = !item.selected
-							m.list.SetItem(idx, item)
-						}
-					}
-				}
-			}
+			m.list.Title = "Available Lambda Functions - Clone(filtered)"
+			m.list.Styles.Title = lipTitleStyleFilter
 		} else {
-			//m.list.FilterState() != list.FilterApplied
-			switch keypress := msg.String(); keypress {
+			switch msg.String() {
 			case "esc", "Q", "q":
 				m.prevMenuState = m.state
 				m.prevState = m.state
@@ -145,10 +181,10 @@ func (m *MenuList) updateLambdaClone(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.fillListItems()
 				return m, nil
 			case " ":
-				i, ok := m.list.SelectedItem().(itemX)
+				i, ok := m.list.SelectedItem().(*itemX)
 				if ok {
 					for idx, val := range m.list.Items() {
-						item := val.(itemX)
+						item := val.(*itemX)
 						if item.name == i.name {
 							item.selected = !item.selected
 							m.list.SetItem(idx, item)
@@ -158,14 +194,14 @@ func (m *MenuList) updateLambdaClone(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				selectedItems := []string{}
 				for _, it := range m.list.Items() {
-					i := it.(itemX)
+					i := it.(*itemX)
 					if i.selected {
 						selectedItems = append(selectedItems, i.name)
 					}
 				}
 				if len(selectedItems) > 0 {
 					m.lambdaSelectedList = selectedItems
-					m.backgroundJobResult = strings.Join(selectedItems, ", ")
+					m.backgroundJobResult = strings.Join(selectedItems, "\n")
 					m.prevState = m.state
 					m.stateOutroDisplay = OutroEnterClone
 					m.state = StateResultDisplay
@@ -181,49 +217,51 @@ func (m *MenuList) updateLambdaClone(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *MenuList) updateLambdaUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// if m.list.FilterState() == list.Filtering {
-		// 	switch msg.String() {
-		// 	case "esc":
-		// 		// Exit filtering mode instead of quitting the menu
-		// 		m.list.ResetFilter()
-		// 		return m, nil
-		// 	case "enter":
-		// 		// Keep it from selecting anything in filter mode
-		// 		return m, nil
-		// 	}
-		// }
-		switch keypress := msg.String(); keypress {
-		case "esc", "Q", "q":
-			m.prevMenuState = m.state
-			m.prevState = m.state
-			m.state = StateMainMenu
-			m.fillListItems()
-			return m, nil
-		case " ":
-			i, ok := m.list.SelectedItem().(itemX)
-			if ok {
-				for idx, val := range m.list.Items() {
-					item := val.(itemX)
-					if item.name == i.name {
-						item.selected = !item.selected
-						m.list.SetItem(idx, item)
+		if m.list.FilterState() == list.Filtering {
+			switch msg.String() {
+			case "esc":
+				m.list.ResetFilter()
+				m.list.Title = "Available Lambda Functions - Upgrade"
+				m.list.Styles.Title = lipTitleStyle
+				return m, nil
+			}
+			m.list.Title = "Available Lambda Functions - Upgrade(filtered)"
+			m.list.Styles.Title = lipTitleStyleFilter
+		} else {
+			switch msg.String() {
+			case "esc", "Q", "q":
+				m.prevMenuState = m.state
+				m.prevState = m.state
+				m.state = StateMainMenu
+				m.fillListItems()
+				return m, nil
+			case " ":
+				i, ok := m.list.SelectedItem().(*itemX)
+				if ok {
+					for idx, val := range m.list.Items() {
+						item := val.(*itemX)
+						if item.name == i.name {
+							item.selected = !item.selected
+							m.list.SetItem(idx, item)
+						}
 					}
 				}
-			}
-		case "enter":
-			selectedItems := []string{}
-			for _, it := range m.list.Items() {
-				i := it.(itemX)
-				if i.selected {
-					selectedItems = append(selectedItems, i.name)
+			case "enter":
+				selectedItems := []string{}
+				for _, it := range m.list.Items() {
+					i := it.(*itemX)
+					if i.selected {
+						selectedItems = append(selectedItems, i.name)
+					}
+				}
+				if len(selectedItems) > 0 {
+					m.lambdaSelectedList = selectedItems
+					m.backgroundJobResult = strings.Join(selectedItems, "\n")
+					m.prevState = m.state
+					m.stateOutroDisplay = OutroEnterClone
+					m.state = StateResultDisplay
 				}
 			}
-			m.lambdaSelectedList = selectedItems
-			m.backgroundJobResult = strings.Join(selectedItems, ", ")
-			m.prevState = m.state
-			m.stateOutroDisplay = OutroEnterUpdate
-			m.state = StateResultDisplay
-			// return m, nil
 		}
 	}
 
@@ -239,7 +277,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c", "Q":
 			return m, tea.Quit
 		case "enter":
-			i, ok := m.list.SelectedItem().(itemX)
+			i, ok := m.list.SelectedItem().(*itemX)
 			if ok {
 				m.choice = string(i.name)
 				switch m.choice {
@@ -507,7 +545,7 @@ func (m *MenuList) fillListItems() {
 	case StateMainMenu:
 		items := []list.Item{}
 		for _, value := range menuTOP {
-			items = append(items, itemX{value, false, value})
+			items = append(items, &itemX{value, false, value})
 		}
 		m.list.SetItems(items)
 	case StateLambdaClone, StateLambdaUpdate:
@@ -520,7 +558,7 @@ func (m *MenuList) fillListItems() {
 		}
 		items := []list.Item{}
 		for _, value := range lambdas {
-			items = append(items, itemX{value[0], false, fmt.Sprintf("%s   %s", value[0], lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(value[1]))})
+			items = append(items, &itemX{value[0], false, fmt.Sprintf("%s   %s", value[0], lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Render(value[1]))})
 		}
 
 		m.list.SetItems(items)
@@ -631,52 +669,5 @@ func ShowMenu(app *applicationMain) {
 	if err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
-	}
-}
-
-// MENU STRUCTURE
-type itemX struct {
-	name        string
-	selected    bool
-	displayName string
-}
-
-func (i itemX) FilterValue() string { return i.displayName }
-
-type itemDelegateX struct {
-	currentState MenuState // Add any fields needed for conditional logic
-}
-
-func (d itemDelegateX) Height() int                             { return 1 }
-func (d itemDelegateX) Spacing() int                            { return 0 }
-func (d itemDelegateX) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (d itemDelegateX) Render(w io.Writer, lm list.Model, index int, listItem list.Item) {
-	i, ok := listItem.(itemX)
-	if !ok {
-		return
-	}
-
-	fn := itemStyle.Render
-
-	switch d.currentState {
-	case StateMainMenu:
-		str := fmt.Sprintf("%d. %s", index+1, i.displayName)
-		if index == lm.Index() {
-			fn = func(s ...string) string {
-				return selectedItemStyle.Render("> " + strings.Join(s, " "))
-			}
-		}
-		fmt.Fprint(w, fn(str))
-	case StateLambdaClone, StateLambdaUpdate:
-		checkbox := "[ ]"
-		if i.selected {
-			checkbox = "[x]"
-		}
-		cursor := "  "
-		if index == lm.Index() {
-			cursor = "> "
-		}
-		str := fmt.Sprintf("%s%s %s", cursor, checkbox, i.displayName)
-		fmt.Fprint(w, str)
 	}
 }
