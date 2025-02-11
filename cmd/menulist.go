@@ -133,8 +133,7 @@ const (
 )
 
 type backgroundJobMsg struct {
-	result  string
-	isError bool
+	result string
 }
 
 type JobList int
