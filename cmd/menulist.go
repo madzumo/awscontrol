@@ -426,6 +426,7 @@ func (m *MenuList) updateMenuMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.fillListItems()
 					return m, nil
 				case menuTOP[8]:
+					m.prevState = m.state
 					m.state = StateResultDisplay
 					m.stateOutroDisplay = OutroEsc
 					m.backgroundJobResult = getHelp()
@@ -610,6 +611,8 @@ func (m *MenuList) updateResultDisplay(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc":
+			m.backgroundJobResult = ""
+			m.textInputError = false
 			//this requires special conditionals becuase ResultDisplay is used to show
 			//results but also for list selection
 			if m.prevState == StateLambdaClone || m.prevState == StateLambdaUpgrade || m.prevState == StateLambdaList {

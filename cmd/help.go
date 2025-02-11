@@ -7,7 +7,7 @@ func getHelp() string {
 	// description := "This utility allows you to manipulate AWS resources easily"
 	keySecret := "The AWS Key & Secret information for API access to your AWS environment. Elevated permissions is suggested."
 	token := "If you are given rotating session credentials then you will need to enter a session token here. Please note this is not needed if you use the CLI access keys assigned from a static IAM user."
-	lambda := "Lambda menu where you can List, Clone Copy & Upgrade Lambda functions"
+	lambda := "Lambda menu where you can List, Clone Copy & Upgrade Lambda functions. It will upgrade to the latest version of that Runtime."
 	glue := "Glue jobs where you can List, Clone Copy & Upgrade"
 	appendText := "This settings is to add custom text on your AWS objects that are cloned. The clone function uses the original name and appends whatever text you put in here. This is mandatory field since you can't have 2 Lambda functions with the same name."
 	replaceText := "If you want more control on where to place the Append text then use this setting. Whatever text you enter here will get replaced with the Append Text regardless of it's location in the name of the object. If the target Replace Text is not found then the default behavior of appending to the end of the name will be applied. The same default behavior will apply if you leave this field blank."
