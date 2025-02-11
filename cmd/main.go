@@ -58,7 +58,7 @@ func (app *applicationMain) getHeader() string {
 			lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.Region)) +
 		fmt.Sprintf("      Secret: %s...   Token: %s...\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.truncateX(app.AwsSecret, 10)),
 			lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.truncateX(app.SessionToken, 10))) +
-		fmt.Sprintf(" Append Text: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.FileNameExtension)) +
+		fmt.Sprintf("    New Text: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.FileNameExtension)) +
 		fmt.Sprintf("Replace Text: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.ReplaceExtension))
 
 	return fullHeader

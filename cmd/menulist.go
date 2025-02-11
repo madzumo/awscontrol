@@ -38,7 +38,7 @@ var (
 		"Enter AWS Secret",
 		"Enter Region",
 		"Enter Session Token",
-		"Set Append Text",
+		"Set New Text",
 		"Set Replace Text",
 		lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Render("Lambda"),
 		lipgloss.NewStyle().Foreground(lipgloss.Color("123")).Render("Glue"),
@@ -476,7 +476,7 @@ func (m *MenuList) updateMenuLambda(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.app.FileNameExtension == "" {
 						m.state = StateResultDisplay
 						m.stateOutroDisplay = OutroEsc
-						m.backgroundJobResult = "Append Text required to clone"
+						m.backgroundJobResult = "New Text entried required to clone"
 						m.textInputError = true
 						return m, nil
 					} else {
@@ -494,7 +494,7 @@ func (m *MenuList) updateMenuLambda(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.app.FileNameExtension == "" {
 						m.state = StateResultDisplay
 						m.stateOutroDisplay = OutroEsc
-						m.backgroundJobResult = "Append Text required to clone"
+						m.backgroundJobResult = "New Text entried required to clone"
 						m.textInputError = true
 						return m, nil
 					} else {
@@ -576,10 +576,10 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.backgroundJobResult = fmt.Sprintf("Saved Session Token: %s", inputValue)
 			case menuTOP[4]:
 				m.app.FileNameExtension = inputValue
-				m.backgroundJobResult = fmt.Sprintf("Saved Append Text to File Name: %s", inputValue)
+				m.backgroundJobResult = fmt.Sprintf("Saved New Text entry as: %s", inputValue)
 			case menuTOP[5]:
 				m.app.ReplaceExtension = inputValue
-				m.backgroundJobResult = fmt.Sprintf("Saved Replace Text to File Name: %s", inputValue)
+				m.backgroundJobResult = fmt.Sprintf("Saved Replace Text entry as: %s", inputValue)
 			}
 
 			m.prevState = m.state
