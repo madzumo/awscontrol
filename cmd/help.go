@@ -10,7 +10,7 @@ func getHelp() string {
 	lambda := "Lambda menu where you can List, Clone & Upgrade Lambda functions. It will upgrade to the latest version of that Runtime. Clone + Upgrade does both actions in 1 shot. Useful for cloning unsupported runtimes in AWS."
 	glue := "Glue jobs where you can List, Clone & Upgrade"
 	addText := "New text to add to the name of the object that you are cloning. The clone function uses the original name of the selected object and adds whatever text you put in here. It appends this text to the original name. This is a mandatory field to avoid duplicate function entries. For more control on where to add this New text use Replace Text field."
-	replaceText := "Text you want to remove and replace with New text. Text entered here will get replaced with the New Text regardless of it's location in the name of the object giving you more control on where to add New Text. If the Replace Text string is not found or if you leave this entry blank then New Text will always default to append to the end of the object."
+	replaceText := "Text you want to remove and replace with New text. Text entered here will get replaced with the New Text regardless of it's location in the name of the object giving you more control on where to add New Text. If the Replace Text string is not found or if you leave this entry blank then New Text will always default to append to the end of the object name."
 
 	finalX := lipgloss.NewStyle().Foreground(lipgloss.Color("170")).Bold(true).Render(head) + "\n\n" +
 		lipgloss.NewStyle().Foreground(lipgloss.Color("112")).Bold(true).Render("Key/Secret: ") + keySecret + "\n\n" +
