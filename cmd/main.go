@@ -20,7 +20,7 @@ var (
 \_\/_\__\/\__\/\__\/_\_\/
    \_\/_/\       /_\_\/  
       \_\/       \_\/    
-					AWS Control 1.3
+					AWS Control 1.4
 `
 
 	settingsFileName = "settings.json"
@@ -35,6 +35,7 @@ type applicationMain struct {
 	Region            string `json:"region"`
 	SessionToken      string `json:"session"`
 	FileNameExtension string `json:"filenameextension"`
+	ReplaceExtension  string `json:"replaceextension"`
 }
 
 func main() {
@@ -53,11 +54,12 @@ func main() {
 
 func (app *applicationMain) getHeader() string {
 	fullHeader := lipgloss.NewStyle().Foreground(lipgloss.Color(headerColor)).Render(headerMenu) + "\n" +
-		fmt.Sprintf("      Key: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.AwsKey)) +
-		fmt.Sprintf("   Secret: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.AwsSecret)) +
-		fmt.Sprintf("   Region: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.Region)) +
-		fmt.Sprintf("    Token: %s...\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.truncateX(app.SessionToken, 10))) +
-		fmt.Sprintf("Extension: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.FileNameExtension))
+		fmt.Sprintf("         Key: %s...  Region: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.truncateX(app.AwsKey, 10)),
+			lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.Region)) +
+		fmt.Sprintf("      Secret: %s...   Token: %s...\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.truncateX(app.AwsSecret, 10)),
+			lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.truncateX(app.SessionToken, 10))) +
+		fmt.Sprintf(" Append Text: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.FileNameExtension)) +
+		fmt.Sprintf("Replace Text: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(subHeaderColor)).Render(app.ReplaceExtension))
 
 	return fullHeader
 }

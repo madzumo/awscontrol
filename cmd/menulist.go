@@ -38,10 +38,12 @@ var (
 		"Enter AWS Secret",
 		"Enter Region",
 		"Enter Session Token",
-		"Set Name Extension",
+		"Set Append Text to Name",
+		"Set Replace Text in Name",
 		lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Render("Lambda"),
 		lipgloss.NewStyle().Foreground(lipgloss.Color("123")).Render("Glue"),
 		// lipgloss.NewStyle().Foreground(lipgloss.Color("160")).Render("Step"),
+		"Help",
 		"Save Settings",
 	}
 
@@ -131,7 +133,8 @@ const (
 )
 
 type backgroundJobMsg struct {
-	result string
+	result  string
+	isError bool
 }
 
 type JobList int
@@ -393,7 +396,7 @@ func (m *MenuList) updateMenuMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = StateTextInput
 					m.inputPrompt = menuTOP[4]
 					m.textInput = textinput.New()
-					m.textInput.Placeholder = "e.g., -dev"
+					m.textInput.Placeholder = "e.g., -prod"
 					m.textInput.Focus()
 					m.textInput.CharLimit = 50
 					m.textInput.Width = 50
@@ -402,16 +405,33 @@ func (m *MenuList) updateMenuMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				case menuTOP[5]:
 					m.prevState = m.state
+					m.state = StateTextInput
+					m.inputPrompt = menuTOP[5]
+					m.textInput = textinput.New()
+					m.textInput.Placeholder = "e.g., -new-prod"
+					m.textInput.Focus()
+					m.textInput.CharLimit = 50
+					m.textInput.Width = 50
+					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					return m, nil
+				case menuTOP[6]:
+					m.prevState = m.state
 					m.list.Title = "Main Menu->Lambda"
 					m.state = StateMenuLAMBDA
 					m.fillListItems()
 					return m, nil
-				case menuTOP[6]:
+				case menuTOP[7]:
 					m.prevState = m.state
 					m.state = StateMenuGLUE
 					m.fillListItems()
 					return m, nil
-				case menuTOP[7]:
+				case menuTOP[8]:
+					m.state = StateResultDisplay
+					m.stateOutroDisplay = OutroEsc
+					m.backgroundJobResult = getHelp()
+					return m, nil
+				case menuTOP[9]:
 					m.prevState = m.state
 					m.state = StateSpinner
 					return m, tea.Batch(m.spinner.Tick, m.backgroundSaveSettings())
@@ -444,10 +464,18 @@ func (m *MenuList) updateMenuLambda(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.fillListItems()
 					return m, nil
 				case menuLAMBDA[1]:
-					m.prevState = m.state
-					m.state = StateLambdaClone
-					m.fillListItems()
-					return m, nil
+					if m.app.FileNameExtension == "" {
+						m.state = StateResultDisplay
+						m.stateOutroDisplay = OutroEsc
+						m.backgroundJobResult = "Append Text required to clone"
+						m.textInputError = true
+						return m, nil
+					} else {
+						m.prevState = m.state
+						m.state = StateLambdaClone
+						m.fillListItems()
+						return m, nil
+					}
 				case menuLAMBDA[2]:
 					m.prevState = m.state
 					m.state = StateLambdaUpgrade
@@ -526,7 +554,10 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.backgroundJobResult = fmt.Sprintf("Saved Session Token: %s", inputValue)
 			case menuTOP[4]:
 				m.app.FileNameExtension = inputValue
-				m.backgroundJobResult = fmt.Sprintf("Saved File Name Extension: %s", inputValue)
+				m.backgroundJobResult = fmt.Sprintf("Saved Append Text to File Name: %s", inputValue)
+			case menuTOP[5]:
+				m.app.ReplaceExtension = inputValue
+				m.backgroundJobResult = fmt.Sprintf("Saved Replace Text to File Name: %s", inputValue)
 			}
 
 			m.prevState = m.state
@@ -721,10 +752,14 @@ func (m *MenuList) backgroundCloneLambda() tea.Cmd {
 
 		var newNameX string
 		for _, v := range m.lambdaSelectedList {
-			if strings.Contains(v, m.app.FileNameExtension) {
-				newNameX = fmt.Sprintf("%s-p313%s", strings.Replace(v, m.app.FileNameExtension, "", 1), m.app.FileNameExtension)
+			if m.app.ReplaceExtension != "" {
+				if strings.Contains(v, m.app.ReplaceExtension) {
+					newNameX = strings.Replace(v, m.app.ReplaceExtension, m.app.FileNameExtension, -1)
+				} else {
+					newNameX = fmt.Sprintf("%s%s", v, m.app.FileNameExtension)
+				}
 			} else {
-				newNameX = fmt.Sprintf("%s-p313%s", v, m.app.FileNameExtension)
+				newNameX = fmt.Sprintf("%s%s", v, m.app.FileNameExtension)
 			}
 			err := m.app.cloneLambda(v, newNameX)
 			if err != nil {
