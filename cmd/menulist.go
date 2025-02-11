@@ -51,6 +51,7 @@ var (
 		"List Lambda Functions",
 		"Clone Lambda",
 		"Upgrade Lambda",
+		"Clone + Upgrade Lambda",
 	}
 
 	menuGLUE = []string{
@@ -91,7 +92,7 @@ func (d itemDelegateX) Render(w io.Writer, lm list.Model, index int, listItem li
 			}
 		}
 		fmt.Fprint(w, fn(str))
-	case StateLambdaClone, StateLambdaUpgrade:
+	case StateLambdaClone, StateLambdaUpgrade, StateLambdaDubba:
 		checkbox := "[ ]"
 		if i.selected {
 			checkbox = "[x]"
@@ -122,6 +123,7 @@ const (
 	StateLambdaList
 	StateMenuLAMBDA
 	StateMenuGLUE
+	StateLambdaDubba
 )
 
 type OutroDisplayState int
@@ -171,7 +173,7 @@ func (m MenuList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateMenuGlue(msg)
 	case StateLambdaList:
 		return m.updateLambdaList(msg)
-	case StateLambdaClone:
+	case StateLambdaClone, StateLambdaDubba:
 		return m.updateLambdaClone(msg)
 	case StateLambdaUpgrade:
 		return m.updateLambdaUpgrade(msg)
@@ -217,13 +219,21 @@ func (m *MenuList) updateLambdaClone(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.list.FilterState() == list.Filtering || m.list.FilterState() == list.FilterApplied {
-			m.list.Title = "Clone Lambda Functions (filtered)"
+			if m.state == StateLambdaClone {
+				m.list.Title = "Clone Lambda Functions (filtered)"
+			} else {
+				m.list.Title = "Clone + Upgrade Lambda Functions (filtered)"
+			}
 		}
 		switch msg.String() {
 		case "esc":
 			if m.list.FilterState() == list.Filtering || m.list.FilterState() == list.FilterApplied {
 				m.list.ResetFilter()
-				m.list.Title = "Clone Lambda Functions"
+				if m.state == StateLambdaClone {
+					m.list.Title = "Clone Lambda Functions"
+				} else {
+					m.list.Title = "Clone + Upgrade Lambda Functions"
+				}
 				m.list.Styles.Title = lipTitleStyle
 				return m, nil
 			} else {
@@ -263,7 +273,6 @@ func (m *MenuList) updateLambdaClone(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		}
-
 	}
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
@@ -481,6 +490,19 @@ func (m *MenuList) updateMenuLambda(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = StateLambdaUpgrade
 					m.fillListItems()
 					return m, nil
+				case menuLAMBDA[3]:
+					if m.app.FileNameExtension == "" {
+						m.state = StateResultDisplay
+						m.stateOutroDisplay = OutroEsc
+						m.backgroundJobResult = "Append Text required to clone"
+						m.textInputError = true
+						return m, nil
+					} else {
+						m.prevState = m.state
+						m.state = StateLambdaDubba
+						m.fillListItems()
+						return m, nil
+					}
 				}
 			}
 			return m, nil
@@ -625,12 +647,18 @@ func (m *MenuList) updateResultDisplay(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "enter":
-			if m.prevState == StateLambdaClone {
+			switch m.prevState {
+			case StateLambdaClone:
 				m.state = StateSpinner
-				return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda())
-			} else if m.prevState == StateLambdaUpgrade {
+				return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda(false))
+
+			case StateLambdaUpgrade:
 				m.state = StateSpinner
 				return m, tea.Batch(m.spinner.Tick, m.backgroundUpdateLambda())
+
+			case StateLambdaDubba:
+				m.state = StateSpinner
+				return m, tea.Batch(m.spinner.Tick, m.backgroundCloneLambda(true))
 			}
 		}
 	}
@@ -664,7 +692,7 @@ func (m MenuList) View() string {
 	case StateMenuMAIN, StateMenuLAMBDA, StateMenuGLUE:
 		m.header = m.app.getHeader()
 		return m.header + "\n" + m.list.View()
-	case StateLambdaClone, StateLambdaUpgrade, StateLambdaList:
+	case StateLambdaClone, StateLambdaUpgrade, StateLambdaList, StateLambdaDubba:
 		return m.list.View()
 	case StateSpinner:
 		return m.viewSpinner()
@@ -716,7 +744,7 @@ func (m *MenuList) fillListItems() {
 		}
 		m.list.SetItems(items)
 
-	case StateLambdaClone, StateLambdaUpgrade, StateLambdaList:
+	case StateLambdaClone, StateLambdaUpgrade, StateLambdaList, StateLambdaDubba:
 		lambdas, err := m.app.listAllLambdaFunctions()
 		if err != nil {
 			m.backgroundJobResult = err.Error()
@@ -746,7 +774,7 @@ func (m *MenuList) backgroundSaveSettings() tea.Cmd {
 	}
 }
 
-func (m *MenuList) backgroundCloneLambda() tea.Cmd {
+func (m *MenuList) backgroundCloneLambda(upgrade2 bool) tea.Cmd {
 	return func() tea.Msg {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(spinnerColor)) //white = 231
 		m.spinnerMsg = "Cloning Lambda"
@@ -763,7 +791,7 @@ func (m *MenuList) backgroundCloneLambda() tea.Cmd {
 			} else {
 				newNameX = fmt.Sprintf("%s%s", v, m.app.FileNameExtension)
 			}
-			err := m.app.cloneLambda(v, newNameX)
+			err := m.app.cloneLambda(v, newNameX, upgrade2)
 			if err != nil {
 				resultX = err.Error()
 				continue
@@ -825,6 +853,11 @@ func SetupListMenu(currentState MenuState) list.Model {
 		lm.SetFilteringEnabled(true)
 		lm.SetShowTitle(true)
 		lm.Title = "Available Lambda Functions"
+	case StateLambdaDubba:
+		lm.SetHeight(27)
+		lm.SetFilteringEnabled(true)
+		lm.SetShowTitle(true)
+		lm.Title = "Clone + Upgrade Lambda Functions"
 	}
 
 	lm.Styles.Title = lipTitleStyle

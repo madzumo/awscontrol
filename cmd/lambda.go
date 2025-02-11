@@ -27,7 +27,7 @@ func (app *applicationMain) createLambdaClient() (*lambda.Client, error) {
 	return client, nil
 }
 
-func (app *applicationMain) cloneLambda(functionName string, functionNameNew string) error {
+func (app *applicationMain) cloneLambda(functionName string, functionNameNew string, upgrade2 bool) error {
 	ctx := context.Background()
 	//create lambda client
 	clientLamb, err := app.createLambdaClient()
@@ -85,10 +85,15 @@ func (app *applicationMain) cloneLambda(functionName string, functionNameNew str
 		}
 	}
 
+	//runtime selection
+	runtimeToUse := result.Configuration.Runtime
+	if upgrade2 {
+		runtimeToUse = types.RuntimePython313
+	}
 	//create the new lambda
 	newLamb, err := clientLamb.CreateFunction(ctx, &lambda.CreateFunctionInput{
 		FunctionName: aws.String(functionNameNew),
-		Runtime:      result.Configuration.Runtime,
+		Runtime:      runtimeToUse,
 		Role:         result.Configuration.Role,
 		Handler:      result.Configuration.Handler,
 		Code: &types.FunctionCode{
